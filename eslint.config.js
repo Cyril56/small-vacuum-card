@@ -1,27 +1,28 @@
 // eslint.config.js
 import js from "@eslint/js";
-import tseslint from "typescript-eslint";
 import prettier from "eslint-config-prettier";
+import tsParser from "@typescript-eslint/parser";
+import tsPlugin from "@typescript-eslint/eslint-plugin";
+import importPlugin from "eslint-plugin-import";
 
 export default [
   js.configs.recommended,
-  ...tseslint.configs.recommended,
   prettier,
   {
+    files: ["src/**/*.ts"],
     languageOptions: {
-      parser: tseslint.parser,
-      ecmaVersion: 2020,
-      sourceType: "module",
-      globals: {
-        window: true,
-        document: true,
+      parser: tsParser,
+      parserOptions: {
+        ecmaVersion: 2020,
+        sourceType: "module",
       },
     },
     plugins: {
-      import: require("eslint-plugin-import"),
+      "@typescript-eslint": tsPlugin,
+      import: importPlugin,
     },
     rules: {
-      // tes règles custom
+      // tes règles custom si besoin
     },
   },
 ];
