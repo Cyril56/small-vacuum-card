@@ -166,63 +166,37 @@ export class VacuumCard extends LitElement {
       if (!this.config.actions[action]) {
         return this.callVacuumService(params.defaultService || action, params);
       }
-
       this.callService(this.config.actions[action]);
     };
   }
 
   private getAttributes(entity: VacuumEntity) {
     const { status, state } = entity.attributes;
-
     return {
       ...entity.attributes,
       status: status ?? state ?? entity.state,
     };
   }
 
-  private renderSource(): Template {
-    const { fan_speed: source, fan_speed_list: sources } = this.getAttributes(
-      this.entity,
-    );
+  /** Nouveau : rendu mode + batterie sur une même ligne */
+  private renderModeBattery(): Template {
+    const { fan_speed, fan_speed_list, battery_level, battery_icon } =
+      this.getAttributes(this.entity);
 
-    if (!sources || !source) {
-      return nothing;
-    }
-
-    const selected = sources.indexOf(source);
+    const mode = fan_speed ?? this.entity.attributes.mode ?? '';
 
     return html`
-      <div class="tip">
-        <ha-button-menu @click="${(e: Event) => e.stopPropagation()}">
-          <div slot="trigger">
-            <ha-icon icon="mdi:fan"></ha-icon>
-            <span class="icon-title">
-              ${localize(`source.${source.toLowerCase()}`) || source}
-            </span>
-          </div>
-          ${sources.map(
-            (item, index) => html`
-              <mwc-list-item
-                ?activated=${selected === index}
-                value=${item}
-                @click=${this.handleSpeed}
-              >
-                ${localize(`source.${item.toLowerCase()}`) || item}
-              </mwc-list-item>
-            `,
-          )}
-        </ha-button-menu>
-      </div>
-    `;
-  }
-
-  private renderBattery(): Template {
-    const { battery_level, battery_icon } = this.getAttributes(this.entity);
-
-    return html`
-      <div class="tip" @click="${() => this.handleMore()}">
-        <ha-icon icon="${battery_icon}"></ha-icon>
-        <span class="icon-title">${battery_level}%</span>
+      <div class="mode-battery">
+        ${mode
+          ? html`<div class="mode">
+              <ha-icon icon="mdi:fan"></ha-icon>
+              <span>${localize(`source.${mode.toLowerCase()}`) || mode}</span>
+            </div>`
+          : nothing}
+        <div class="battery" @click="${() => this.handleMore()}">
+          <ha-icon icon="${battery_icon}"></ha-icon>
+          <span>${battery_level}%</span>
+        </div>
       </div>
     `;
   }
@@ -306,11 +280,7 @@ export class VacuumCard extends LitElement {
 
   private renderName(): Template {
     const { friendly_name } = this.getAttributes(this.entity);
-
-    if (!this.config.show_name) {
-      return nothing;
-    }
-
+    if (!this.config.show_name) return nothing;
     return html` <div class="vacuum-name">${friendly_name}</div> `;
   }
 
@@ -319,9 +289,7 @@ export class VacuumCard extends LitElement {
     const localizedStatus =
       localize(`status.${status.toLowerCase()}`) || status;
 
-    if (!this.config.show_status) {
-      return nothing;
-    }
+    if (!this.config.show_status) return nothing;
 
     return html`
       <div class="status">
@@ -336,122 +304,64 @@ export class VacuumCard extends LitElement {
     `;
   }
 
+  /** Toolbar modifiée : icônes seules si en marche */
   private renderToolbar(state: VacuumEntityState): Template {
     if (!this.config.show_toolbar) {
       return nothing;
     }
 
-    switch (state) {
-      case 'on':
-      case 'auto':
-      case 'spot':
-      case 'edge':
-      case 'single_room':
-      case 'cleaning': {
-        return html`
-          <div class="toolbar">
-            <paper-button @click="${this.handleVacuumAction('pause')}">
-              <ha-icon icon="hass:pause"></ha-icon>
-              ${localize('common.pause')}
-            </paper-button>
-            <paper-button @click="${this.handleVacuumAction('stop')}">
-              <ha-icon icon="hass:stop"></ha-icon>
-              ${localize('common.stop')}
-            </paper-button>
-            <paper-button @click="${this.handleVacuumAction('return_to_base')}">
-              <ha-icon icon="hass:home-map-marker"></ha-icon>
-              ${localize('common.return_to_base')}
-            </paper-button>
-          </div>
-        `;
-      }
+    const runningStates = [
+      'on',
+      'auto',
+      'spot',
+      'edge',
+      'single_room',
+      'cleaning',
+    ];
+    const isRunning = runningStates.includes(state);
 
-      case 'paused': {
-        return html`
-          <div class="toolbar">
-            <paper-button
-              @click="${this.handleVacuumAction('resume', {
-                defaultService: 'start',
-                request: true,
-              })}"
-            >
-              <ha-icon icon="hass:play"></ha-icon>
-              ${localize('common.continue')}
-            </paper-button>
-            <paper-button @click="${this.handleVacuumAction('return_to_base')}">
-              <ha-icon icon="hass:home-map-marker"></ha-icon>
-              ${localize('common.return_to_base')}
-            </paper-button>
-          </div>
-        `;
-      }
-
-      case 'returning': {
-        return html`
-          <div class="toolbar">
-            <paper-button
-              @click="${this.handleVacuumAction('resume', {
-                defaultService: 'start',
-                request: true,
-              })}"
-            >
-              <ha-icon icon="hass:play"></ha-icon>
-              ${localize('common.continue')}
-            </paper-button>
-            <paper-button @click="${this.handleVacuumAction('pause')}">
-              <ha-icon icon="hass:pause"></ha-icon>
-              ${localize('common.pause')}
-            </paper-button>
-          </div>
-        `;
-      }
-      case 'docked':
-      case 'idle':
-      default: {
-        const buttons = this.config.shortcuts.map(
-          ({ name, service, icon, service_data, target }) => {
-            const execute = () => {
-              if (service) {
-                return this.callService({ service, service_data, target });
-              }
-            };
-            return html`
-              <ha-icon-button label="${name}" @click="${execute}">
-                <ha-icon icon="${icon}"></ha-icon>
-              </ha-icon-button>
-            `;
-          },
-        );
-
-        const dockButton = html`
+    if (isRunning) {
+      return html`
+        <div class="toolbar">
+          <ha-icon-button
+            label="${localize('common.pause')}"
+            @click="${this.handleVacuumAction('pause')}"
+            ><ha-icon icon="hass:pause"></ha-icon>
+          </ha-icon-button>
+          <ha-icon-button
+            label="${localize('common.stop')}"
+            @click="${this.handleVacuumAction('stop')}"
+            ><ha-icon icon="hass:stop"></ha-icon>
+          </ha-icon-button>
           <ha-icon-button
             label="${localize('common.return_to_base')}"
             @click="${this.handleVacuumAction('return_to_base')}"
             ><ha-icon icon="hass:home-map-marker"></ha-icon>
           </ha-icon-button>
-        `;
-
-        return html`
-          <div class="toolbar">
-            <ha-icon-button
-              label="${localize('common.start')}"
-              @click="${this.handleVacuumAction('start')}"
-              ><ha-icon icon="hass:play"></ha-icon>
-            </ha-icon-button>
-
-            <ha-icon-button
-              label="${localize('common.locate')}"
-              @click="${this.handleVacuumAction('locate', { request: false })}"
-              ><ha-icon icon="mdi:map-marker"></ha-icon>
-            </ha-icon-button>
-
-            ${state === 'idle' ? dockButton : ''}
-            <div class="fill-gap"></div>
-            ${buttons}
-          </div>
-        `;
-      }
+        </div>
+      `;
     }
+
+    // autres états -> toolbar existante (dock, locate, etc.)
+    return html`
+      <div class="toolbar">
+        <ha-icon-button
+          label="${localize('common.start')}"
+          @click="${this.handleVacuumAction('start')}"
+          ><ha-icon icon="hass:play"></ha-icon>
+        </ha-icon-button>
+        <ha-icon-button
+          label="${localize('common.locate')}"
+          @click="${this.handleVacuumAction('locate', { request: false })}"
+          ><ha-icon icon="mdi:map-marker"></ha-icon>
+        </ha-icon-button>
+        <ha-icon-button
+          label="${localize('common.return_to_base')}"
+          @click="${this.handleVacuumAction('return_to_base')}"
+          ><ha-icon icon="hass:home-map-marker"></ha-icon>
+        </ha-icon-button>
+      </div>
+    `;
   }
 
   private renderUnavailable(): Template {
@@ -477,16 +387,14 @@ export class VacuumCard extends LitElement {
       <ha-card>
         <div class="preview">
           <div class="header">
-            <div class="tips">
-              ${this.renderSource()} ${this.renderBattery()}
-            </div>
+            ${this.renderModeBattery()}
             <ha-icon-button
               class="more-info"
               icon="mdi:dots-vertical"
               ?more-info="true"
               @click="${() => this.handleMore()}"
-              ><ha-icon icon="mdi:dots-vertical"></ha-icon
-            ></ha-icon-button>
+              ><ha-icon icon="mdi:dots-vertical"></ha-icon>
+            </ha-icon-button>
           </div>
 
           ${this.renderMapOrImage(this.entity.state)}
