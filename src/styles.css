@@ -39,16 +39,22 @@ ha-card {
   justify-content: space-between;
 }
 
+/* --- Tips section (mode + batterie sur la même ligne) --- */
 .tips {
   display: flex;
+  justify-content: flex-start;
+  align-items: center;
   gap: var(--vc-spacing);
-  flex-grow: 1;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   padding: var(--vc-spacing);
+}
 
-  & .tip {
-    cursor: pointer;
-  }
+.tip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: fit-content;
+  cursor: pointer;
 }
 
 .map {
@@ -274,4 +280,21 @@ ha-icon {
   display: inline-block;
   vertical-align: middle;
   padding: 0 3px;
+}
+
+/* --- Toolbar quand l’aspirateur est en marche (icônes seulement) --- */
+.toolbar.running paper-button {
+  flex-direction: column;
+  margin: 0 5px;
+  padding: 8px;
+}
+
+.toolbar.running paper-button span,
+.toolbar.running paper-button ha-icon + * {
+  display: none;
+}
+
+.toolbar.running paper-button ha-icon {
+  margin: 0;
+  font-size: 28px;
 }
